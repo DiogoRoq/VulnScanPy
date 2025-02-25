@@ -68,29 +68,55 @@ class WebScanner:
             except Exception as e:
                 print(f'Error testing SQL Injection on {url}: {str(e)}')          
 
-        def check_xss(self, url: str) -> None:
-            xss_payloads = [
-                "<script>alert('XSS')</script>",
-                "<img src=x onerror=alert('XSS')>",
-                "javascript:alert('XSS)"
-                            ]
+    def check_xss(self, url: str) -> None:
+        xss_payloads = [
+            "<script>alert('XSS')</script>",
+            "<img src=x onerror=alert('XSS')>",
+            "javascript:alert('XSS)"
+                        ]
 
-            for payload in xss_payloads:
-                try:
-                    parsed = urllib.parse.urlparse(url)
-                    params = urllib.parse.parse_qs(parsed.query)
+        for payload in xss_payloads:
+            try:
+                parsed = urllib.parse.urlparse(url)
+                params = urllib.parse.parse_qs(parsed.query)
 
-                    for param in params:
-                        test_url = url.replace(f"{param}={params[param][0]}",
-                                               f"{param}={urllib.parse.quote(payload)}")
-                        response = self.session.get(test_url)
+                for param in params:
+                    test_url = url.replace(f"{param}={params[param][0]}",
+                                            f"{param}={urllib.parse.quote(payload)}")
+                    response = self.session.get(test_url)
 
-                        if payload in response.text:
-                            self.report_vulnerability({
-                                'type': 'Cross-Site Scripting (XSS)',
-                                'url': url,
-                                'parameter': param,
-                                'payload': payload
-                            })  
-                except Exception as e:
-                    print(f"Error testing XSS on {url}: {str(e)}")
+                    if payload in response.text:
+                        self.report_vulnerability({
+                            'type': 'Cross-Site Scripting (XSS)',
+                            'url': url,
+                            'parameter': param,
+                            'payload': payload
+                        })  
+            except Exception as e:
+                print(f"Error testing XSS on {url}: {str(e)}")
+
+
+    def check_sensitive_info(self, url: str) -> None:
+
+        sensitive_patterns = {
+        'email': r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+        'phone': r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
+        'ssn': r'\b\d{3}-\d{2}-\d{4}\b',
+        'api_key': r'api[_-]?key[_-]?([\'"|`])([a-zA-Z0-9]{32,45})\1'
+        }
+
+        try:
+            response = self.session.get(url)
+
+            for info_type, pattern in sensitive_patterns.items():
+                matches = re.finditer(pattern, response.text)
+                for match in matches:
+                    self.report_vulnerability({
+                        'type': 'Sensitive Information Exposure',
+                        'url': url,
+                        'info_type': info_type,
+                        'pattern': pattern
+                    })
+
+        except Exception as e:
+            print(f"Error checking sensitive information on {url}: {str(e)}")
