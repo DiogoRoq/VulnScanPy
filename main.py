@@ -66,5 +66,31 @@ class WebScanner:
 
                         })
             except Exception as e:
-                print(f'Error testing SQL Injection on {url}: {str(e)}')            
-   
+                print(f'Error testing SQL Injection on {url}: {str(e)}')          
+
+        def check_xss(self, url: str) -> None:
+            xss_payloads = [
+                "<script>alert('XSS')</script>",
+                "<img src=x onerror=alert('XSS')>",
+                "javascript:alert('XSS)"
+                            ]
+
+            for payload in xss_payloads:
+                try:
+                    parsed = urllib.parse.urlparse(url)
+                    params = urllib.parse.parse_qs(parsed.query)
+
+                    for param in params:
+                        test_url = url.replace(f"{param}={params[param][0]}",
+                                               f"{param}={urllib.parse.quote(payload)}")
+                        response = self.session.get(test_url)
+
+                        if payload in response.text:
+                            self.report_vulnerability({
+                                'type': 'Cross-Site Scripting (XSS)',
+                                'url': url,
+                                'parameter': param,
+                                'payload': payload
+                            })  
+                except Exception as e:
+                    print(f"Error testing XSS on {url}: {str(e)}")
