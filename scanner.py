@@ -120,3 +120,37 @@ class WebScanner:
 
         except Exception as e:
             print(f"Error checking sensitive information on {url}: {str(e)}")
+
+
+    def scan(self) -> List[Dict]:
+        print(f'\n{colorama.Fore.BLUE}Starting security scan of {self.target_url}{colorama.Style.RESET_ALL}\n')
+
+        self.crawl(self.target_url)
+        with ThreadPoolExecutor(max_workers = 5) as executor:
+            for url in self.visited_urls:
+                executor.submit(self.check_sql_injection, url)
+                executor.submit(self.check_xss, url)
+                executor.submit(self.check_sensitive_info, url)
+        
+        return self.vulnerabilities
+
+    def report_vulnerability(self, vulnerability: Dict) -> None:
+        self.vulnerabilities.append(vulnerability)
+        print(f"{colorama.Fore.RED}[VULNERABILITY FOUND]{colorama.Style.RESET_ALL}")
+        for key, value in vulnerability.items():
+            print(f"{key}:{value}")
+        print()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python scanner.py <target_url>")
+        sys.exit(1)
+
+    target_url = sys.argv[1]
+    scanner = WebScanner(target_url)
+    vulnerabilities = scanner.scan()
+    
+    print(f"\n{colorama.Fore.GREEN}Scan Complete!{colorama.Style.RESET_ALL}")
+    print(f"Total URLs scanned: {len(scanner.visited_urls)}")
+    print(f"Vulnerabilities found: {len(vulnerabilities)}")
